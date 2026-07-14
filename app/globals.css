@@ -1,0 +1,393 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Document editor: content area and scrollbar */
+.editor-content:focus {
+  outline: none;
+}
+.editor-content h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.025em;
+  color: #18181b;
+}
+.editor-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  letter-spacing: -0.025em;
+  color: #27272a;
+}
+.editor-content p {
+  margin-bottom: 1.25rem;
+  line-height: 1.75;
+  color: #3f3f46;
+}
+.editor-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+  color: #3f3f46;
+}
+.editor-content li {
+  margin-bottom: 0.5rem;
+}
+.editor-content blockquote {
+  border-left: 4px solid #e4e4e7;
+  padding-left: 1rem;
+  font-style: italic;
+  color: #52525b;
+  margin: 1.5rem 0;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+/* TipTap Placeholder extension: show placeholder when editor is empty */
+.tiptap p.is-editor-empty:first-child::before {
+  color: #a1a1aa;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Task list (checklist) styling */
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.tiptap ul[data-type="taskList"] li label {
+  display: flex;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+.tiptap ul[data-type="taskList"] li label input[type="checkbox"] {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2px solid #d4d4d8;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.tiptap ul[data-type="taskList"] li label input[type="checkbox"]:checked {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+  background-size: 100%;
+}
+
+.tiptap ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  text-decoration: line-through;
+  color: #a1a1aa;
+}
+
+/* Code block styling */
+.tiptap pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.tiptap pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Inline code */
+.tiptap code {
+  background: #f4f4f5;
+  color: #e11d48;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Horizontal rule */
+.tiptap hr {
+  border: none;
+  border-top: 2px solid #e4e4e7;
+  margin: 2rem 0;
+}
+
+/* Ordered list */
+.tiptap ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+  color: #3f3f46;
+}
+
+/* Heading styles for TipTap prose */
+.tiptap h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.2;
+  color: #18181b;
+}
+
+.tiptap h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+  color: #27272a;
+}
+
+.tiptap h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+  color: #3f3f46;
+}
+
+/* Links */
+.tiptap a,
+.tiptap .editor-link {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.tiptap a:hover,
+.tiptap .editor-link:hover {
+  color: #1d4ed8;
+}
+
+/* Images */
+.tiptap .editor-image,
+.tiptap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  cursor: default;
+}
+
+.tiptap img.ProseMirror-selectednode {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Tables */
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid #e4e4e7;
+}
+
+.tiptap table td,
+.tiptap table th {
+  border: 1px solid #e4e4e7;
+  padding: 0.5rem 0.75rem;
+  position: relative;
+  vertical-align: top;
+  min-width: 80px;
+}
+
+.tiptap table th {
+  background-color: #f4f4f5;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #3f3f46;
+  text-align: left;
+}
+
+.tiptap table td {
+  font-size: 0.875rem;
+  color: #52525b;
+}
+
+.tiptap table td > *,
+.tiptap table th > * {
+  margin: 0;
+}
+
+.tiptap table .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(59, 130, 246, 0.08);
+  pointer-events: none;
+}
+
+.tiptap table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #3b82f6;
+  cursor: col-resize;
+  z-index: 20;
+}
+
+/* =====================================================================
+ * Collaboration cursors (remote users)
+ * =====================================================================
+ * The caret itself is a thin border-left on a zero-width <span>. We use
+ * border instead of background because a 2px-wide background element at
+ * an inline boundary doesn't reliably fall between characters across
+ * browsers — a border on a zero-width span does.
+ */
+.collab-caret {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  margin-left: -1px;
+  border-left: 2px solid currentColor;
+  pointer-events: none;
+  vertical-align: text-bottom;
+}
+
+.collab-caret-label {
+  position: absolute;
+  top: -1.2em;
+  left: -1px;
+  white-space: nowrap;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px 3px 3px 0;
+  pointer-events: none;
+  line-height: 1.1;
+  user-select: none;
+}
+
+.collab-selection {
+  border-radius: 1px;
+}
+
+@layer base {
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: var(--font-sans);
+  }
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+  }
+  .dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
