@@ -82,6 +82,7 @@ export default function CommentsPanel({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [askingAI, setAskingAI] = useState<string | null>(null);
+  const [aiSuggestError, setAiSuggestError] = useState<{ commentId: string; message: string } | null>(null);
   const [implementingBranch, setImplementingBranch] = useState<string | null>(null);
   const [branchError, setBranchError] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -104,7 +105,9 @@ export default function CommentsPanel({
     ]);
 
     if (commentsRes.data) {
-      setComments(commentsRes.data.map((row) => mapCommentRow(row as Record<string, unknown>)));
+      setComments(
+        commentsRes.data.map((row: Record<string, unknown>) => mapCommentRow(row))
+      );
     }
     if (changesRes.data) setProposedChanges(changesRes.data);
     setLoading(false);
@@ -245,6 +248,10 @@ export default function CommentsPanel({
     if (!targetText) return;
 
     setAskingAI(comment.id);
+    setAiSuggestError(null);
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
 
     try {
       const res = await fetch('/api/ai/suggest', {
@@ -256,10 +263,11 @@ export default function CommentsPanel({
           surroundingContext: documentContent.slice(0, 1000),
           documentContext: documentContent,
         }),
+        signal: controller.signal,
       });
 
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (!res.ok || data.error) throw new Error(data.error ?? 'AI suggestion failed');
 
       const supabase = createSupabaseBrowserClient();
       const aiCommentId = generateId();
@@ -286,8 +294,15 @@ export default function CommentsPanel({
 
       await fetchData();
     } catch (err) {
-      console.error('AI suggestion failed:', err);
+      const message =
+        err instanceof Error && err.name === 'AbortError'
+          ? 'Request timed out. Please try again.'
+          : err instanceof Error
+            ? err.message
+            : 'AI suggestion failed';
+      setAiSuggestError({ commentId: comment.id, message });
     } finally {
+      window.clearTimeout(timeoutId);
       setAskingAI(null);
     }
   };
@@ -322,27 +337,33 @@ export default function CommentsPanel({
         <div
           className={`group rounded-xl p-3 border transition-all ${
             isAI
-              ? 'bg-purple-50/50 border-purple-100'
+              ? 'bg-purple-50/70 border-transparent text-zinc-900 dark:bg-purple-950/30 dark:border-purple-800/40 dark:text-purple-200'
               : comment.is_resolved
-              ? 'bg-muted/40 border-border opacity-75'
-              : 'bg-card border-border hover:border-border/80'
+              ? 'bg-zinc-50 border-zinc-200 opacity-75 dark:bg-zinc-900/60 dark:border-zinc-800'
+              : 'bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100 dark:hover:border-zinc-700'
           }`}
         >
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2 min-w-0">
               <div
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 ${
-                  isAI ? 'bg-purple-200 text-purple-800' : 'bg-primary/10 text-primary'
+                  isAI
+                    ? 'bg-purple-600 text-white dark:bg-purple-900/60 dark:text-purple-200'
+                    : 'bg-zinc-800 text-white dark:bg-zinc-800 dark:text-zinc-200'
                 }`}
               >
                 {isAI ? <Sparkles className="w-3.5 h-3.5" /> : comment.user_email?.charAt(0).toUpperCase() ?? '?'}
               </div>
-              <span className="text-xs font-medium text-foreground truncate">
+              <span
+                className={`truncate text-xs font-medium ${
+                  isAI ? 'text-zinc-900 dark:text-purple-200' : 'text-zinc-900 dark:text-zinc-100'
+                }`}
+              >
                 {isAI ? 'Strux AI' : comment.user_email?.split('@')[0]}
               </span>
-              <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo(comment.created_at)}</span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 shrink-0">{timeAgo(comment.created_at)}</span>
               {comment.is_resolved && (
-                <span className="text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
                   Resolved
                 </span>
               )}
@@ -361,7 +382,7 @@ export default function CommentsPanel({
                   title={comment.is_resolved ? 'Mark unresolved' : 'Mark resolved'}
                   aria-pressed={comment.is_resolved}
                   onClick={() => handleResolve(comment.id, comment.is_resolved)}
-                  className={comment.is_resolved ? 'text-green-600' : 'text-muted-foreground'}
+                  className={comment.is_resolved ? 'text-emerald-600 dark:text-emerald-300' : 'text-zinc-500 dark:text-zinc-400'}
                 >
                   <CheckCircle2 className={`w-3.5 h-3.5 ${comment.is_resolved ? 'fill-current' : ''}`} />
                 </Button>
@@ -372,7 +393,7 @@ export default function CommentsPanel({
                     size="icon-xs"
                     title="Delete thread"
                     onClick={() => handleDelete(comment.id)}
-                    className="text-muted-foreground hover:text-destructive"
+                    className="text-zinc-500 hover:text-destructive dark:text-zinc-400"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
@@ -383,13 +404,13 @@ export default function CommentsPanel({
 
           {comment.highlighted_text && (
             anchor && !anchor.stale ? (
-              <div className="mb-2 px-2.5 py-1.5 bg-amber-50 border-l-2 border-amber-400 rounded-r-md">
-                <p className="text-xs text-amber-900 italic line-clamp-2">&ldquo;{anchor.text}&rdquo;</p>
+              <div className="mb-2 rounded-md border-l-4 border-orange-500 bg-amber-50 px-2.5 py-1.5 text-orange-500/80 dark:border dark:border-l dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+                <p className="line-clamp-2 text-xs italic">&ldquo;{anchor.text}&rdquo;</p>
               </div>
             ) : (
-              <div className="mb-2 px-2.5 py-1.5 bg-muted border-l-2 border-muted-foreground/30 rounded-r-md">
-                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Anchor missing in document</p>
-                <p className="text-xs text-muted-foreground italic line-clamp-2 line-through">
+              <div className="mb-2 px-2.5 py-1.5 bg-zinc-100 border-l-2 border-zinc-300 rounded-r-md dark:bg-zinc-800 dark:border-zinc-600">
+                <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 mb-0.5">Anchor missing in document</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 italic line-clamp-2 line-through">
                   &ldquo;{comment.highlighted_text}&rdquo;
                 </p>
               </div>
@@ -398,7 +419,9 @@ export default function CommentsPanel({
 
           <p
             className={`text-sm leading-relaxed ${
-              comment.is_resolved ? 'text-muted-foreground line-through decoration-muted-foreground/40' : 'text-foreground'
+              comment.is_resolved
+                ? 'text-zinc-500 line-through decoration-zinc-400/40 dark:text-zinc-400'
+                : 'text-zinc-900 dark:text-zinc-100'
             }`}
           >
             {comment.content}
@@ -408,7 +431,7 @@ export default function CommentsPanel({
             <div
               key={change.id}
               id={`proposed-change-${change.id}`}
-              className={focusChangeId === change.id ? 'ring-2 ring-purple-400 rounded-lg mt-2' : 'mt-2'}
+              className={focusChangeId === change.id ? 'mt-2 rounded-lg ring-2 ring-primary' : 'mt-2'}
             >
               <ProposedChange
                 id={change.id}
@@ -422,11 +445,12 @@ export default function CommentsPanel({
           ))}
 
           {!isReply && !isAI && !comment.is_resolved && (
-            <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-border">
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
               <Button
                 type="button"
                 variant="ghost"
                 size="xs"
+                className="text-zinc-600 dark:text-zinc-100"
                 onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
               >
                 <MessageSquareReply className="w-3 h-3" />
@@ -434,6 +458,7 @@ export default function CommentsPanel({
               </Button>
               <Button
                 type="button"
+                variant="ghost"
                 size="xs"
                 disabled={isProvisioning || askingAI === comment.id || !canImplement}
                 title={
@@ -442,7 +467,7 @@ export default function CommentsPanel({
                     : 'Select text in the document or fix the missing anchor'
                 }
                 onClick={() => handleAIImplement(comment)}
-                className="bg-purple-600 text-white hover:bg-purple-700"
+                className="text-zinc-600 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
               >
                 {isProvisioning ? (
                   <>
@@ -460,12 +485,27 @@ export default function CommentsPanel({
                 type="button"
                 variant="link"
                 size="xs"
-                className="text-purple-700 h-auto px-1"
+                className="h-auto px-1 text-primary"
                 disabled={askingAI === comment.id || isProvisioning || !canImplement}
                 onClick={() => handleAskAI(comment)}
               >
                 {askingAI === comment.id ? 'Thinking…' : 'Suggest inline'}
               </Button>
+              {aiSuggestError?.commentId === comment.id && (
+                <div className="mt-2 flex items-start justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
+                  <span>{aiSuggestError.message}</span>
+                  <button
+                    type="button"
+                    className="shrink-0 underline"
+                    onClick={() => {
+                      setAiSuggestError(null);
+                      void handleAskAI(comment);
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -487,7 +527,7 @@ export default function CommentsPanel({
               }}
               placeholder="Reply…"
               rows={1}
-              className="flex-1 px-3 py-1.5 text-sm border border-input rounded-lg resize-none bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex-1 px-3 py-1.5 text-sm border border-zinc-200 rounded-lg resize-none bg-white text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 placeholder:dark:text-zinc-500"
             />
             <Button type="button" size="sm" disabled={!replyText.trim() || submitting} onClick={() => handleAddComment(comment.id)}>
               <Send className="w-3.5 h-3.5" />
@@ -501,7 +541,7 @@ export default function CommentsPanel({
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
       </div>
     );
   }
@@ -531,19 +571,19 @@ export default function CommentsPanel({
 
         {visibleComments.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-sm text-muted-foreground">No active comments</p>
-            <p className="text-xs text-muted-foreground/80 mt-1">Select text in the doc, then add feedback</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No active comments</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Select text in the doc, then add feedback</p>
           </div>
         ) : (
           visibleComments.map((comment) => renderComment(comment))
         )}
       </div>
 
-      <div className="flex-none p-4 border-t border-border bg-background">
+      <div className="flex-none p-4 border-t border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         {selectedText && (
-          <div className="mb-2 px-3 py-2 bg-primary/5 border border-primary/15 rounded-lg">
-            <p className="text-[10px] font-medium text-primary mb-0.5">Commenting on</p>
-            <p className="text-xs text-foreground italic line-clamp-2">&ldquo;{selectedText}&rdquo;</p>
+          <div className="mb-2 rounded-lg border-l-4 border-orange-500 bg-amber-50 px-3 py-2 dark:border dark:border-l dark:border-amber-800/60 dark:bg-amber-950/40">
+            <p className="mb-0.5 text-[10px] font-medium text-orange-500/80 dark:text-amber-200">Commenting on</p>
+            <p className="line-clamp-2 text-xs italic text-orange-500/80 dark:text-amber-200">&ldquo;{selectedText}&rdquo;</p>
           </div>
         )}
         <div className="flex gap-2">
@@ -559,9 +599,16 @@ export default function CommentsPanel({
             }}
             placeholder="Add a comment…"
             rows={2}
-            className="flex-1 px-3 py-2 text-sm border border-input rounded-lg resize-none bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className="flex-1 px-3 py-2 text-sm border border-zinc-200 rounded-lg resize-none bg-white text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 placeholder:dark:text-zinc-500"
           />
-          <Button type="button" size="icon" disabled={!newComment.trim() || submitting} onClick={() => handleAddComment(null)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={!newComment.trim() || submitting}
+            onClick={() => handleAddComment(null)}
+            className="text-zinc-500 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+          >
             <Send className="w-4 h-4" />
           </Button>
         </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase';
 import { computeWordDiff, type DiffSegment } from '@/lib/diff';
 
@@ -34,19 +35,26 @@ function InlineDiff({ original, proposed }: { original: string; proposed: string
       {segments.map((seg: DiffSegment, i: number) => {
         if (seg.type === 'removed') {
           return (
-            <span key={i} className="bg-red-100 text-red-700 line-through decoration-red-400/60">
+            <span
+              key={i}
+              className="bg-red-500/15 text-red-700 line-through decoration-red-400/60 dark:text-red-300"
+            >
               {seg.value}
             </span>
           );
         }
         if (seg.type === 'added') {
           return (
-            <span key={i} className="bg-green-100 text-green-700">
+            <span key={i} className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
               {seg.value}
             </span>
           );
         }
-        return <span key={i} className="text-gray-500">{seg.value}</span>;
+        return (
+          <span key={i} className="text-zinc-700 dark:text-zinc-300">
+            {seg.value}
+          </span>
+        );
       })}
     </p>
   );
@@ -77,22 +85,32 @@ export default function HistoryPanel({ documentId }: HistoryPanelProps) {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="size-5 animate-spin text-zinc-500 dark:text-zinc-400" />
       </div>
     );
   }
 
   if (changes.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-        <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-4">
-          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-900">
+          <svg
+            className="h-6 w-6 text-zinc-500 dark:text-zinc-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         </div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">No changes yet</h3>
-        <p className="text-xs text-gray-500 leading-relaxed max-w-[220px]">
+        <h3 className="mb-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">No changes yet</h3>
+        <p className="max-w-[220px] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
           When AI proposes changes and you accept or reject them, they&apos;ll appear here.
         </p>
       </div>
@@ -100,7 +118,7 @@ export default function HistoryPanel({ documentId }: HistoryPanelProps) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+    <div className="flex-1 space-y-2 overflow-y-auto p-4">
       {changes.map((change) => {
         const isExpanded = expandedId === change.id;
 
@@ -108,44 +126,67 @@ export default function HistoryPanel({ documentId }: HistoryPanelProps) {
           <div
             key={change.id}
             onClick={() => setExpandedId(isExpanded ? null : change.id)}
-            className={`rounded-lg border p-3 transition-all cursor-pointer ${
-              change.status === 'accepted'
-                ? 'border-green-200 bg-green-50/50 hover:border-green-300'
-                : change.status === 'rejected'
-                ? 'border-gray-200 bg-gray-50 opacity-60 hover:opacity-80'
-                : 'border-purple-200 bg-purple-50/50 hover:border-purple-300'
+            className={`cursor-pointer rounded-lg border border-zinc-200 bg-white p-3 text-zinc-900 shadow-sm transition-all dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 ${
+              change.status === 'rejected' ? 'opacity-60 hover:opacity-80' : ''
             }`}
           >
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="mb-1.5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 {change.status === 'accepted' ? (
-                  <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  <svg
+                    className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 ) : change.status === 'rejected' ? (
-                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <svg
+                    className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 ) : (
-                  <svg className="w-3.5 h-3.5 text-purple-500" viewBox="0 0 24 24" fill="currentColor">
+                  <svg
+                    className="h-3.5 w-3.5 text-purple-500 dark:text-purple-300"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
                     <path d="M12 2L14.4 7.2L20 9L14.4 10.8L12 16L9.6 10.8L4 9L9.6 7.2L12 2Z" />
                   </svg>
                 )}
-                <span className={`text-xs font-medium ${
-                  change.status === 'accepted'
-                    ? 'text-green-700'
+                <span
+                  className={`text-xs font-medium ${
+                    change.status === 'accepted'
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : change.status === 'rejected'
+                        ? 'text-zinc-500 dark:text-zinc-400'
+                        : 'text-purple-700 dark:text-purple-300'
+                  }`}
+                >
+                  {change.status === 'accepted'
+                    ? 'Accepted'
                     : change.status === 'rejected'
-                    ? 'text-gray-500'
-                    : 'text-purple-700'
-                }`}>
-                  {change.status === 'accepted' ? 'Accepted' : change.status === 'rejected' ? 'Rejected' : 'Pending'}
+                      ? 'Rejected'
+                      : 'Pending'}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-400">{timeAgo(change.created_at)}</span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{timeAgo(change.created_at)}</span>
                 <svg
-                  className={`w-3 h-3 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"
+                  className={`h-3 w-3 text-zinc-500 transition-transform dark:text-zinc-400 ${isExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -153,11 +194,11 @@ export default function HistoryPanel({ documentId }: HistoryPanelProps) {
             </div>
 
             {isExpanded ? (
-              <div className="mt-2 p-2.5 bg-white rounded-md border border-gray-100">
+              <div className="mt-2 rounded-md border border-zinc-200 bg-zinc-50 p-2.5 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300">
                 <InlineDiff original={change.original_text} proposed={change.proposed_text} />
               </div>
             ) : (
-              <p className="text-xs text-gray-600 line-clamp-2">
+              <p className="mt-2 line-clamp-2 rounded-md border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300">
                 {change.status === 'accepted' ? change.proposed_text : change.original_text}
               </p>
             )}

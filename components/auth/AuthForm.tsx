@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { signIn, signUp } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function AuthForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -33,64 +36,56 @@ export default function AuthForm() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Strux</h1>
-          <p className="text-gray-500 mt-2 text-sm">
+    <div className="mx-auto w-full max-w-md">
+      <div className="rounded-2xl border bg-card p-8 shadow-sm">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold tracking-tight">Strux</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             {mode === 'signin' ? 'Welcome back' : 'Create your account'}
           </p>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+        <div className="mb-6 flex rounded-lg bg-muted p-1">
           <button
+            type="button"
             onClick={() => { setMode('signin'); setError(''); }}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-              mode === 'signin'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
+              mode === 'signin' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
             }`}
           >
             Sign In
           </button>
           <button
+            type="button"
             onClick={() => { setMode('signup'); setError(''); }}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-              mode === 'signup'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
+              mode === 'signup' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
             }`}
           >
             Sign Up
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="mb-1 block text-sm font-medium">
               Email
             </label>
-            <input
+            <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="you@example.com"
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-900
-                         placeholder:text-gray-400 focus:outline-none focus:ring-2
-                         focus:ring-blue-500 focus:border-transparent transition-shadow"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="mb-1 block text-sm font-medium">
               Password
             </label>
-            <input
+            <Input
               id="password"
               type="password"
               value={password}
@@ -98,46 +93,33 @@ export default function AuthForm() {
               required
               minLength={6}
               placeholder="At least 6 characters"
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-900
-                         placeholder:text-gray-400 focus:outline-none focus:ring-2
-                         focus:ring-blue-500 focus:border-transparent transition-shadow"
             />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-3">
+            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium
-                       rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <Button type="submit" disabled={loading} className="w-full">
             {loading ? (
               <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10"
-                          stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                {mode === 'signin' ? 'Signing in...' : 'Creating account...'}
+                <Loader2 className="size-4 animate-spin" />
+                {mode === 'signin' ? 'Signing in…' : 'Creating account…'}
               </span>
             ) : (
               mode === 'signin' ? 'Sign In' : 'Create Account'
             )}
-          </button>
+          </Button>
         </form>
 
-        {/* Mode switch link */}
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
           <button
+            type="button"
             onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); }}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            className="font-medium text-primary hover:underline"
           >
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>

@@ -12,6 +12,7 @@ import {
   fetchParentDocumentRow,
   persistBranchContent,
 } from '@/lib/branches';
+import { trackEvent } from '@/lib/telemetry';
 
 export type CommentForBranch = {
   id: string;
@@ -135,6 +136,13 @@ export async function provisionCommentAIBranch(params: {
   });
 
   await persistBranchContent(branchId, branchContent, branchTitle);
+
+  void trackEvent('branch_created', {
+    branchId,
+    parentDocumentId: params.parentDocumentId,
+    source: 'ai-comment',
+    commentId: params.comment.id,
+  });
 
   return {
     branchId,

@@ -1,5 +1,14 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent);
 const mod = isMac ? '⌘' : 'Ctrl';
 
@@ -44,47 +53,33 @@ const SECTIONS = [
 ];
 
 interface ShortcutsModalProps {
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
 }
 
-export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
-  if (!isOpen) return null;
-
+export default function ShortcutsModal({ open, onClose }: ShortcutsModalProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[80vh] max-w-lg gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="px-6 pt-6 pb-3">
+          <DialogTitle>Keyboard Shortcuts</DialogTitle>
+          <DialogDescription>Speed up your workflow</DialogDescription>
+        </DialogHeader>
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-        <div className="px-6 pt-6 pb-3 flex items-center justify-between flex-none">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Keyboard Shortcuts</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Speed up your workflow</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="overflow-y-auto px-6 pb-6 space-y-5">
+        <div className="max-h-[60vh] space-y-5 overflow-y-auto px-6 pb-6">
           {SECTIONS.map((section) => (
             <div key={section.title}>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {section.title}
               </h3>
               <div className="space-y-0.5">
                 {section.shortcuts.map((s) => (
                   <div
                     key={s.action}
-                    className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-muted/50"
                   >
-                    <span className="text-sm text-gray-700">{s.action}</span>
-                    <kbd className="text-[11px] font-mono text-gray-500 bg-gray-100 border border-gray-200 rounded-md px-2 py-0.5">
+                    <span className="text-sm">{s.action}</span>
+                    <kbd className="rounded-md border bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                       {s.keys}
                     </kbd>
                   </div>
@@ -93,7 +88,13 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
             </div>
           ))}
         </div>
-      </div>
-    </div>
+
+        <div className="border-t px-6 py-3">
+          <Button type="button" variant="outline" size="sm" onClick={onClose} className="w-full">
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

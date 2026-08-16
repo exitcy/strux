@@ -1,8 +1,12 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase';
 import { colorForUser } from '@/lib/realtime';
+import type { JSONContent } from '@tiptap/core';
+import type { DocumentTemplateId } from '@/lib/templates';
+import { getTemplate } from '@/lib/templates';
+import { trackEvent } from '@/lib/telemetry';
 
 export type DocStatus = 'main' | 'branch' | 'draft';
-export type DashboardNav = 'projects' | 'recent' | 'starred' | 'shared';
+export type DashboardNav = 'projects' | 'recent' | 'starred' | 'shared' | 'trash';
 
 export type DashboardCollaborator = {
   id: string;
@@ -36,10 +40,11 @@ type RawDoc = {
   starred?: boolean | null;
   doc_status?: string | null;
   last_merged_at?: string | null;
+  deleted_at?: string | null;
 };
 
 const EXTENDED_SELECT =
-  'id, title, updated_at, owner_id, parent_id, project_name, starred, doc_status, last_merged_at';
+  'id, title, updated_at, owner_id, parent_id, project_name, starred, doc_status, last_merged_at, deleted_at';
 const BASE_SELECT = 'id, title, updated_at, owner_id';
 
 function isMissingColumnError(message: string, code?: string): boolean {
@@ -95,7 +100,7 @@ async function fetchBranchCounts(
 
   const { data, error } = await supabase
     .from('documents')
-    .select('parent_id')
+    .select('parent_id, doc_status')
     .in('parent_id', trunkIds);
 
   if (error) {
@@ -106,6 +111,7 @@ async function fetchBranchCounts(
   }
 
   for (const row of data ?? []) {
+    if ((row as { doc_status?: string | null }).doc_status === 'merged') continue;
     const pid = row.parent_id as string;
     counts.set(pid, (counts.get(pid) ?? 0) + 1);
   }
@@ -178,7 +184,8 @@ async function fetchCollaboratorsForDocs(
 
 async function selectDocuments(
   supabase: ReturnType<typeof createSupabaseBrowserClient>,
-  filter: { column: string; value: string } | { column: string; values: string[] }
+  filter: { column: string; value: string } | { column: string; values: string[] },
+  opts?: { includeDeleted?: boolean }
 ): Promise<RawDoc[]> {
   let q = supabase.from('documents').select(EXTENDED_SELECT);
   if ('value' in filter) {
@@ -186,7 +193,24 @@ async function selectDocuments(
   } else {
     q = q.in(filter.column, filter.values);
   }
-  const { data, error } = await q.order('updated_at', { ascending: false });
+
+  if (!opts?.includeDeleted) {
+    q = q.is('deleted_at', null);
+  }
+
+  let { data, error } = await q.order('updated_at', { ascending: false });
+
+  if (error && !opts?.includeDeleted && isMissingColumnError(error.message, error.code ?? undefined)) {
+    let retry = supabase.from('documents').select(EXTENDED_SELECT);
+    if ('value' in filter) {
+      retry = retry.eq(filter.column, filter.value);
+    } else {
+      retry = retry.in(filter.column, filter.values);
+    }
+    const retryResult = await retry.order('updated_at', { ascending: false });
+    data = retryResult.data;
+    error = retryResult.error;
+  }
 
   if (!error && data) return data as RawDoc[];
 
@@ -209,10 +233,13 @@ async function selectDocuments(
   return [];
 }
 
-export async function fetchDashboardDocuments(userId: string): Promise<DashboardDocRow[]> {
+export async function fetchDashboardDocuments(
+  userId: string
+): Promise<{ rows: DashboardDocRow[]; error?: string }> {
   const supabase = createSupabaseBrowserClient();
 
-  const ownedRaw = await selectDocuments(supabase, { column: 'owner_id', value: userId });
+  try {
+    const ownedRaw = await selectDocuments(supabase, { column: 'owner_id', value: userId });
   const trunkIds = ownedRaw.filter((d) => !d.parent_id).map((d) => d.id);
   const branchCounts = await fetchBranchCounts(supabase, trunkIds);
 
@@ -275,7 +302,11 @@ export async function fetchDashboardDocuments(userId: string): Promise<Dashboard
     });
   }
 
-  return [...ownedRows, ...sharedRows];
+  return { rows: [...ownedRows, ...sharedRows] };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load documents';
+    return { rows: [], error: message };
+  }
 }
 
 export function filterByNav(rows: DashboardDocRow[], nav: DashboardNav, userId: string): DashboardDocRow[] {
@@ -290,9 +321,22 @@ export function filterByNav(rows: DashboardDocRow[], nav: DashboardNav, userId: 
       return rows.filter((r) => r.starred && r.source === 'owned');
     case 'shared':
       return rows.filter((r) => r.source === 'shared');
+    case 'trash':
+      return rows.filter((r) => r.source === 'owned');
     default:
       return rows;
   }
+}
+
+export function filterBySearch(rows: DashboardDocRow[], query: string): DashboardDocRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(
+    (r) =>
+      r.title.toLowerCase().includes(q) ||
+      r.project_name.toLowerCase().includes(q) ||
+      (r.owner_email?.toLowerCase().includes(q) ?? false)
+  );
 }
 
 export function groupByProject(rows: DashboardDocRow[]): Map<string, DashboardDocRow[]> {
@@ -311,17 +355,19 @@ export function groupByProject(rows: DashboardDocRow[]): Map<string, DashboardDo
 
 export async function createDocument(
   userId: string,
-  projectName = 'General'
+  projectName = 'General',
+  templateId: DocumentTemplateId = 'blank'
 ): Promise<string | null> {
   const supabase = createSupabaseBrowserClient();
+  const template = getTemplate(templateId);
   const newId =
     self.crypto.randomUUID?.() ??
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
   const payload: Record<string, unknown> = {
     id: newId,
-    title: 'Untitled',
-    content: null,
+    title: template.defaultTitle,
+    content: template.content as JSONContent,
     owner_id: userId,
     project_name: projectName,
     parent_id: null,
@@ -345,6 +391,11 @@ export async function createDocument(
     console.error('[dashboard] create document failed:', error);
     return null;
   }
+  void trackEvent('document_created', {
+    documentId: newId,
+    projectName,
+    templateId,
+  });
   return newId;
 }
 
@@ -357,7 +408,66 @@ export async function renameDocument(id: string, title: string): Promise<boolean
   return !error;
 }
 
+export async function updateDocumentProject(id: string, projectName: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase
+    .from('documents')
+    .update({ project_name: projectName.trim() || 'General' })
+    .eq('id', id);
+  if (error && isMissingColumnError(error.message, error.code ?? undefined)) return false;
+  return !error;
+}
+
+export async function fetchTrashedDocuments(userId: string): Promise<DashboardDocRow[]> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from('documents')
+    .select(EXTENDED_SELECT)
+    .eq('owner_id', userId)
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+
+  if (error) {
+    if (isMissingColumnError(error.message, error.code ?? undefined)) return [];
+    console.error('[dashboard] trash fetch failed:', error);
+    return [];
+  }
+
+  return ((data ?? []) as RawDoc[])
+    .filter((d) => !d.parent_id)
+    .map((doc) =>
+      toRow(doc, 0, [], { source: 'owned', role: 'owner' })
+    );
+}
+
 export async function deleteDocument(id: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from('documents')
+    .update({ deleted_at: now, updated_at: now })
+    .eq('id', id);
+
+  if (error && isMissingColumnError(error.message, error.code ?? undefined)) {
+    const { error: hardErr } = await supabase.from('documents').delete().eq('id', id);
+    return !hardErr;
+  }
+
+  return !error;
+}
+
+export async function restoreDocument(id: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase
+    .from('documents')
+    .update({ deleted_at: null, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error && isMissingColumnError(error.message, error.code ?? undefined)) return false;
+  return !error;
+}
+
+export async function permanentlyDeleteDocument(id: string): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
   const { error } = await supabase.from('documents').delete().eq('id', id);
   return !error;

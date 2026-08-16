@@ -163,7 +163,7 @@ export async function fetchDocumentBootstrap(
   const supabase = createSupabaseBrowserClient();
   let { data, error } = await supabase
     .from('documents')
-    .select('yjs_state, content, title, owner_id, version')
+    .select('yjs_state, content, title, owner_id, version, deleted_at')
     .eq('id', documentId)
     .single();
 
@@ -189,6 +189,9 @@ export async function fetchDocumentBootstrap(
     if (error) console.error('fetchDocumentBootstrap failed:', error);
     return null;
   }
+
+  const deletedAt = (data as { deleted_at?: string | null }).deleted_at;
+  if (deletedAt) return null;
 
   // PostgREST returns BYTEA as either a base64 string or a `\x...` hex
   // literal depending on column settings. Handle both, fall back to null.
