@@ -6,6 +6,7 @@ import { signIn, signUp } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { StruxMark } from '@/components/brand/StruxMark';
 
 export default function AuthForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -39,6 +40,9 @@ export default function AuthForm() {
     <div className="mx-auto w-full max-w-md">
       <div className="rounded-2xl border bg-card p-8 shadow-sm">
         <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <StruxMark className="size-6" title="" />
+          </div>
           <h1 className="text-3xl font-bold tracking-tight">Strux</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {mode === 'signin' ? 'Welcome back' : 'Create your account'}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, GitBranch, Rocket, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { StruxLogo } from '@/components/brand/StruxLogo';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -19,12 +20,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="text-xs font-bold">S</span>
-          </div>
-          <span className="text-sm font-semibold">Strux</span>
-        </div>
+        <StruxLogo />
         <div className="flex items-center gap-2">
           <Link
             href="/login"

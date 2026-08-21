@@ -81,18 +81,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   ArrowLeft,
   CheckCircle2,
   GitMerge,
   Loader2,
   MessageSquare,
-  MoreHorizontal,
   RefreshCw,
   Rocket,
   Share2,
@@ -204,7 +197,6 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
   const [title, setTitle] = useState('Untitled');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [isFindOpen, setIsFindOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isLinkOpen, setIsLinkOpen] = useState(false);
@@ -1029,42 +1021,42 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
             </Button>
           )}
 
+          <ExportModal
+            documentId={documentId}
+            title={title}
+            getJSON={() => editor?.getJSON() ?? { type: 'doc', content: [] }}
+            getHTML={() => editor?.getHTML() ?? ''}
+            userEmail={user?.email ?? undefined}
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              aria-label="Ship to IDE"
+              title="Ship to IDE"
+            >
+              <Rocket className="size-3.5" />
+              <span className="hidden sm:inline">Ship to IDE</span>
+              {hasContent && bootstrapped && (
+                <span className="hidden rounded bg-primary/10 px-1 py-0.5 text-[9px] font-bold text-primary sm:inline">
+                  Ready
+                </span>
+              )}
+            </Button>
+          </ExportModal>
+
           <Button
             type="button"
-            variant="outline"
             size="sm"
-            onClick={() => setIsExportOpen(true)}
-            className="hidden gap-1.5 sm:flex"
+            onClick={() => setIsShareOpen(true)}
+            className="gap-1.5"
+            aria-label="Share"
+            title="Share"
           >
-            <Rocket className="size-3.5" />
-            Ship to IDE
-            {hasContent && bootstrapped && (
-              <span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] font-bold text-primary">Ready</span>
-            )}
-          </Button>
-
-          <Button type="button" size="sm" onClick={() => setIsShareOpen(true)} className="hidden gap-1.5 sm:flex">
             <Share2 className="size-3.5" />
-            Share
+            <span className="hidden sm:inline">Share</span>
           </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button type="button" variant="ghost" size="icon-sm" className="sm:hidden" />}
-            >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsExportOpen(true)}>
-                <Rocket className="size-4" />
-                Ship to IDE
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setIsShareOpen(true)}>
-                <Share2 className="size-4" />
-                Share
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </header>
 
@@ -1118,16 +1110,6 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
       )}
 
       <ShareModal documentId={documentId} open={isShareOpen} onClose={() => setIsShareOpen(false)} />
-
-      <ExportModal
-        open={isExportOpen}
-        onClose={() => setIsExportOpen(false)}
-        documentId={documentId}
-        title={title}
-        getJSON={() => editor?.getJSON() ?? { type: 'doc', content: [] }}
-        getHTML={() => editor?.getHTML() ?? ''}
-        userEmail={user?.email ?? undefined}
-      />
 
       <LinkDialog
         open={isLinkOpen}

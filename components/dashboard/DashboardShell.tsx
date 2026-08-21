@@ -14,6 +14,7 @@ import {
 import type { ReactNode } from 'react';
 
 import { useAuth } from '@/components/auth/AuthProvider';
+import { StruxMark } from '@/components/brand/StruxMark';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 import type { DashboardNav } from '@/lib/dashboard-queries';
 import { colorForUser } from '@/lib/realtime';
@@ -79,14 +80,9 @@ export default function DashboardShell({
         <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
           <div className="flex items-center gap-2.5 px-1">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <span className="text-xs font-bold">S</span>
+              <StruxMark className="size-4" title="" />
             </div>
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm font-semibold tracking-tight">Strux</span>
-              <span className="truncate text-[10px] text-muted-foreground">
-                Command center
-              </span>
-            </div>
+            <span className="truncate text-sm font-semibold tracking-tight">Strux</span>
           </div>
         </SidebarHeader>
 
