@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase';
+import { isMissingColumnError } from '@/lib/supabase/errors';
 import { colorForUser } from '@/lib/realtime';
 import type { JSONContent } from '@tiptap/core';
 import type { DocumentTemplateId } from '@/lib/templates';
@@ -46,10 +47,6 @@ type RawDoc = {
 const EXTENDED_SELECT =
   'id, title, updated_at, owner_id, parent_id, project_name, starred, doc_status, last_merged_at, deleted_at';
 const BASE_SELECT = 'id, title, updated_at, owner_id';
-
-function isMissingColumnError(message: string, code?: string): boolean {
-  return /column .* does not exist|42703|PGRST204/i.test(message + ' ' + (code ?? ''));
-}
 
 export function deriveDocStatus(doc: {
   parent_id?: string | null;

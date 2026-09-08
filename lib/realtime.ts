@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core';
 import { createSupabaseBrowserClient } from './supabase';
+import { isMissingColumnError } from './supabase/errors';
 
 // =====================================================================
 // Doc lifecycle helpers
@@ -113,7 +114,7 @@ export async function saveDocumentSnapshot(
   // been applied), Postgres returns 42703 "column does not exist".
   // Retry without those columns so editing still functions and we don't
   // silently swallow user keystrokes — but yell about it loud and clear.
-  if (error && /column .* does not exist|42703|PGRST204/i.test(error.message + ' ' + (error.code ?? ''))) {
+  if (error && isMissingColumnError(error.message, error.code ?? undefined)) {
     console.warn(
       '[Strux] yjs_state column missing on documents table. The CRDT ' +
       'migration has not been applied; falling back to JSON-only saves. ' +
@@ -170,7 +171,7 @@ export async function fetchDocumentBootstrap(
   // Same migration-not-applied fallback as in saveDocumentSnapshot. We
   // re-query without the new columns so a stale DB schema doesn't block
   // the editor from loading at all.
-  if (error && /column .* does not exist|42703|PGRST204/i.test(error.message + ' ' + (error.code ?? ''))) {
+  if (error && isMissingColumnError(error.message, error.code ?? undefined)) {
     console.warn(
       '[Strux] yjs_state column missing — loading without CRDT state. ' +
       'Run supabase/migrations/20260423180000_yjs_state.sql to enable ' +

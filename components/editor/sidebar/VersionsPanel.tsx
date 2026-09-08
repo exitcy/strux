@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { JSONContent } from '@tiptap/core';
 import { listVersions, deleteVersion, restoreVersion, createVersion, type DocumentVersion } from '@/lib/versions';
+import { timeAgo } from '@/lib/utils/time';
 import { useAuth } from '@/components/auth/AuthProvider';
 import VersionDiffModal from '../VersionDiffModal';
 
@@ -16,17 +17,6 @@ interface VersionsPanelProps {
   // Bumped by the parent whenever a new version is created elsewhere
   // (e.g. auto-snapshot after save). We re-fetch on change.
   refreshToken: number;
-}
-
-function timeAgo(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return 'just now';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
 }
 
 export default function VersionsPanel({

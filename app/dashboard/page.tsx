@@ -63,7 +63,6 @@ export default function DashboardPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [activeNav, setActiveNav] = useState<DashboardNav>('projects');
   const [searchQuery, setSearchQuery] = useState('');
-  const [schemaWarning, setSchemaWarning] = useState('');
   const [actionError, setActionError] = useState('');
 
   useEffect(() => {

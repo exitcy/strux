@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase';
 import { computeWordDiff, type DiffSegment } from '@/lib/diff';
+import { timeAgo } from '@/lib/utils/time';
 
 interface ChangeEntry {
   id: string;
@@ -15,17 +16,6 @@ interface ChangeEntry {
 
 interface HistoryPanelProps {
   documentId: string;
-}
-
-function timeAgo(dateString: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }
 
 function InlineDiff({ original, proposed }: { original: string; proposed: string }) {

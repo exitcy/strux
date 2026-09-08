@@ -1,10 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
 import { createSupabaseBrowserClient } from '@/lib/supabase';
+import { isMissingColumnError } from '@/lib/supabase/errors';
 import { saveDocumentSnapshot } from '@/lib/realtime';
-
-function isMissingColumnError(message: string, code?: string): boolean {
-  return /column .* does not exist|42703|PGRST204/i.test(message + ' ' + (code ?? ''));
-}
 
 export type BranchInfo = {
   id: string;

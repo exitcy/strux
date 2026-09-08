@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { JSONContent } from '@tiptap/core';
 import { blockText, findNodeIndexByBlockId, findNodeIndexByText } from '@/lib/document-content';
+import { isMissingColumnError } from '@/lib/supabase/errors';
 
 export type CommentRecord = {
   id: string;
@@ -13,10 +14,6 @@ export type CommentRecord = {
   user_id: string;
   parent_id: string | null;
 };
-
-function isMissingColumnError(message: string, code?: string): boolean {
-  return /column .* does not exist|42703|PGRST204/i.test(message + ' ' + (code ?? ''));
-}
 
 /** Normalize Supabase row (`is_resolved` vs legacy `resolved`). */
 export function mapCommentRow(row: Record<string, unknown>): CommentRecord {

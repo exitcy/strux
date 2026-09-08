@@ -208,7 +208,7 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
   const [isLargeScreen, setIsLargeScreen] = useState(true);
   const [selectedText, setSelectedText] = useState('');
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<'owner' | 'editor' | 'viewer'>('owner');
+  const [userRole, setUserRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
   const [versionsRefreshToken, setVersionsRefreshToken] = useState(0);
   const [providerStatus, setProviderStatus] = useState<ProviderStatus>('connecting');
@@ -939,9 +939,9 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
               type="text"
               value={title}
               onChange={handleTitleChange}
-              readOnly={userRole === 'viewer'}
+              readOnly={!canEdit}
               className={`w-32 truncate rounded bg-transparent px-1 text-sm font-semibold text-foreground outline-none transition-colors sm:w-48 lg:w-64 ${
-                userRole === 'viewer' ? 'cursor-default' : 'hover:bg-muted focus:bg-muted'
+                !canEdit ? 'cursor-default' : 'hover:bg-muted focus:bg-muted'
               }`}
             />
             <div className="flex items-center gap-1.5 px-1">
@@ -1003,7 +1003,7 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
 
           <ThemeToggle compact />
 
-          {userRole === 'viewer' && (
+          {!canEdit && (
             <span className="hidden rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 sm:inline">
               View only
             </span>
@@ -1145,7 +1145,7 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
         />
       )}
 
-      {userRole !== 'viewer' ? (
+      {canEdit ? (
       <div className="fixed bottom-8 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2">
         <div className="flex items-center gap-0.5 overflow-x-auto rounded-full border border-border bg-card p-1.5 shadow-lg backdrop-blur-xl">
           <ToolbarButton
