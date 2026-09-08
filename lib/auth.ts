@@ -14,6 +14,17 @@ export async function signIn(email: string, password: string) {
   return data;
 }
 
+export async function signInWithOAuth(provider: 'github' | 'google') {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;

@@ -28,6 +28,11 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // OAuth callback: refresh session cookies only; never redirect away.
+  if (pathname.startsWith('/auth/callback')) {
+    return response;
+  }
+
   // Not logged in and trying to access protected routes → redirect to login
   if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/doc'))) {
     return NextResponse.redirect(new URL('/login', request.url));
@@ -48,5 +53,5 @@ export async function middleware(request: NextRequest) {
 
 // Only run middleware on these routes (skip static assets, API routes, etc.)
 export const config = {
-  matcher: ['/', '/login', '/dashboard', '/doc/:path*'],
+  matcher: ['/', '/login', '/dashboard', '/doc/:path*', '/auth/callback'],
 };
