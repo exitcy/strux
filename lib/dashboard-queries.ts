@@ -195,19 +195,7 @@ async function selectDocuments(
     q = q.is('deleted_at', null);
   }
 
-  let { data, error } = await q.order('updated_at', { ascending: false });
-
-  if (error && !opts?.includeDeleted && isMissingColumnError(error.message, error.code ?? undefined)) {
-    let retry = supabase.from('documents').select(EXTENDED_SELECT);
-    if ('value' in filter) {
-      retry = retry.eq(filter.column, filter.value);
-    } else {
-      retry = retry.in(filter.column, filter.values);
-    }
-    const retryResult = await retry.order('updated_at', { ascending: false });
-    data = retryResult.data;
-    error = retryResult.error;
-  }
+  const { data, error } = await q.order('updated_at', { ascending: false });
 
   if (!error && data) return data as RawDoc[];
 
@@ -218,7 +206,27 @@ async function selectDocuments(
     } else {
       fb = fb.in(filter.column, filter.values);
     }
-    const { data: baseData, error: baseErr } = await fb.order('updated_at', { ascending: false });
+    if (!opts?.includeDeleted) {
+      fb = fb.is('deleted_at', null);
+    }
+    let { data: baseData, error: baseErr } = await fb.order('updated_at', { ascending: false });
+
+    if (
+      baseErr &&
+      !opts?.includeDeleted &&
+      isMissingColumnError(baseErr.message, baseErr.code ?? undefined)
+    ) {
+      let noFilter = supabase.from('documents').select(BASE_SELECT);
+      if ('value' in filter) {
+        noFilter = noFilter.eq(filter.column, filter.value);
+      } else {
+        noFilter = noFilter.in(filter.column, filter.values);
+      }
+      const retry = await noFilter.order('updated_at', { ascending: false });
+      baseData = retry.data;
+      baseErr = retry.error;
+    }
+
     if (baseErr) {
       console.error('[dashboard] documents fetch failed:', baseErr);
       return [];
@@ -441,33 +449,39 @@ export async function deleteDocument(id: string): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
   const now = new Date().toISOString();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('documents')
     .update({ deleted_at: now, updated_at: now })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
 
   if (error && isMissingColumnError(error.message, error.code ?? undefined)) {
-    const { error: hardErr } = await supabase.from('documents').delete().eq('id', id);
-    return !hardErr;
+    const { data: hardData, error: hardErr } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', id)
+      .select('id');
+    return !hardErr && (hardData?.length ?? 0) > 0;
   }
 
-  return !error;
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function restoreDocument(id: string): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('documents')
     .update({ deleted_at: null, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
   if (error && isMissingColumnError(error.message, error.code ?? undefined)) return false;
-  return !error;
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function permanentlyDeleteDocument(id: string): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
-  const { error } = await supabase.from('documents').delete().eq('id', id);
-  return !error;
+  const { data, error } = await supabase.from('documents').delete().eq('id', id).select('id');
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function toggleDocumentStar(id: string, starred: boolean): Promise<boolean> {
