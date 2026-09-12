@@ -90,8 +90,10 @@ export async function provisionCommentAIBranch(params: {
     throw new Error('AI returned an empty suggestion');
   }
 
+  // Apply onto the same JSON used for indexing (live editor snapshot when
+  // available). A second DB clone can be empty/stale while Yjs is authoritative.
   const branchContent = applyProposedTextAtNodeIndex(
-    cloneParentContent(parent),
+    parentContent,
     nodeIndex,
     proposedText
   );

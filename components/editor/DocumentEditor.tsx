@@ -657,7 +657,8 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
       // Build a fresh Y.Doc from the snapshot JSON, then transplant its
       // state into the live ydoc as a single update transaction. This
       // is the y-prosemirror-recommended pattern for snapshot replace.
-      const tmp = prosemirrorJSONToYDoc(buildConversionSchema(ydoc), content);
+      // Fragment must be 'default' — TipTap Collaboration binds that name.
+      const tmp = prosemirrorJSONToYDoc(buildConversionSchema(ydoc), content, 'default');
       const fullState = Y.encodeStateAsUpdate(tmp);
       tmp.destroy();
 
@@ -749,7 +750,18 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
       if (boot.yjsState && boot.yjsState.length > 0) {
         Y.applyUpdate(ydoc, boot.yjsState);
       } else if (boot.content) {
-        const tmp = prosemirrorJSONToYDoc(buildConversionSchema(ydoc), boot.content);
+        // Fragment must be 'default' — TipTap Collaboration binds that name
+        // (prosemirrorJSONToYDoc defaults to 'prosemirror', which the editor
+        // never reads). Clear any Collaboration seed before applying.
+        const tmp = prosemirrorJSONToYDoc(
+          buildConversionSchema(ydoc),
+          boot.content,
+          'default'
+        );
+        ydoc.transact(() => {
+          const fragment = ydoc.get('default', Y.XmlFragment);
+          fragment.delete(0, fragment.length);
+        }, 'hydrate');
         Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(tmp));
         tmp.destroy();
       }
