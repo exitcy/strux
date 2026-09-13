@@ -12,6 +12,7 @@ import {
   fetchParentDocumentRow,
   persistBranchContent,
 } from '@/lib/branches';
+import { trackEvent } from '@/lib/telemetry';
 
 export type CommentForBranch = {
   id: string;
@@ -89,8 +90,10 @@ export async function provisionCommentAIBranch(params: {
     throw new Error('AI returned an empty suggestion');
   }
 
+  // Apply onto the same JSON used for indexing (live editor snapshot when
+  // available). A second DB clone can be empty/stale while Yjs is authoritative.
   const branchContent = applyProposedTextAtNodeIndex(
-    cloneParentContent(parent),
+    parentContent,
     nodeIndex,
     proposedText
   );
@@ -135,6 +138,13 @@ export async function provisionCommentAIBranch(params: {
   });
 
   await persistBranchContent(branchId, branchContent, branchTitle);
+
+  void trackEvent('branch_created', {
+    branchId,
+    parentDocumentId: params.parentDocumentId,
+    source: 'ai-comment',
+    commentId: params.comment.id,
+  });
 
   return {
     branchId,

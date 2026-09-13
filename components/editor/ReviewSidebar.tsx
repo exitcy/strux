@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import type { JSONContent } from '@tiptap/core';
+import { Bot, Clock, History, MessageSquare } from 'lucide-react';
 import CommentsPanel from './sidebar/CommentsPanel';
 import AIChatPanel from './sidebar/AIChatPanel';
 import VersionsPanel from './sidebar/VersionsPanel';
+import HistoryPanel from './sidebar/HistoryPanel';
+import { Button } from '@/components/ui/button';
 
-type Tab = 'comments' | 'ai' | 'versions';
+type Tab = 'comments' | 'ai' | 'versions' | 'history';
 
 interface ReviewSidebarProps {
   onClose: () => void;
@@ -20,7 +23,6 @@ interface ReviewSidebarProps {
   initialTab?: Tab;
   onAcceptChange: (nodeIndex: number, proposedText: string) => void;
   getNodeIndex: (text: string) => number;
-  // Versions-tab plumbing
   currentJSON: JSONContent;
   canEdit: boolean;
   onRestoreVersion: (content: JSONContent, title: string) => void;
@@ -28,33 +30,10 @@ interface ReviewSidebarProps {
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  {
-    id: 'comments',
-    label: 'Comments',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'ai',
-    label: 'AI Chat',
-    icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2L14.4 7.2L20 9L14.4 10.8L12 16L9.6 10.8L4 9L9.6 7.2L12 2Z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'versions',
-    label: 'Versions',
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
+  { id: 'comments', label: 'Comments', icon: <MessageSquare className="size-4" /> },
+  { id: 'ai', label: 'AI Chat', icon: <Bot className="size-4" /> },
+  { id: 'versions', label: 'Versions', icon: <Clock className="size-4" /> },
+  { id: 'history', label: 'History', icon: <History className="size-4" /> },
 ];
 
 export default function ReviewSidebar({
@@ -77,41 +56,35 @@ export default function ReviewSidebar({
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
   return (
-    <div className="flex flex-col h-full bg-white w-full">
-      <div className="flex-none px-4 pt-4 pb-3 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-gray-900 tracking-tight">Review</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    <div className="flex h-full w-full flex-col bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <div className="flex-none border-b border-zinc-200 px-4 pt-4 pb-3 dark:border-zinc-800">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Review</h2>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose}>
+            ×
+          </Button>
         </div>
 
-        <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+        <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
+              className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1.5 text-xs font-medium transition-all ${
                 activeTab === tab.id
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'border border-zinc-200 bg-white text-zinc-900 shadow-sm dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
               }`}
             >
-              <span className={activeTab === tab.id && tab.id === 'ai' ? 'text-purple-600' : ''}>
-                {tab.icon}
-              </span>
-              {tab.label}
+              {tab.icon}
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {activeTab === 'comments' && (
           <CommentsPanel
             documentId={documentId}
@@ -125,13 +98,18 @@ export default function ReviewSidebar({
             getNodeIndex={getNodeIndex}
           />
         )}
-        {activeTab === 'ai' && (
+        {activeTab === 'ai' && canEdit && (
           <AIChatPanel
             documentId={documentId}
             documentContent={documentContent}
             documentTitle={documentTitle}
             selectedText={selectedText}
           />
+        )}
+        {activeTab === 'ai' && !canEdit && (
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+            AI chat is available to editors only.
+          </div>
         )}
         {activeTab === 'versions' && (
           <VersionsPanel
@@ -143,6 +121,7 @@ export default function ReviewSidebar({
             refreshToken={versionsRefreshToken}
           />
         )}
+        {activeTab === 'history' && <HistoryPanel documentId={documentId} />}
       </div>
     </div>
   );

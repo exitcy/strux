@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core';
 import { createSupabaseBrowserClient } from './supabase';
+import { isMissingColumnError } from './supabase/errors';
 
 // =====================================================================
 // Doc lifecycle helpers
@@ -113,7 +114,7 @@ export async function saveDocumentSnapshot(
   // been applied), Postgres returns 42703 "column does not exist".
   // Retry without those columns so editing still functions and we don't
   // silently swallow user keystrokes — but yell about it loud and clear.
-  if (error && /column .* does not exist|42703|PGRST204/i.test(error.message + ' ' + (error.code ?? ''))) {
+  if (error && isMissingColumnError(error.message, error.code ?? undefined)) {
     console.warn(
       '[Strux] yjs_state column missing on documents table. The CRDT ' +
       'migration has not been applied; falling back to JSON-only saves. ' +
@@ -163,14 +164,14 @@ export async function fetchDocumentBootstrap(
   const supabase = createSupabaseBrowserClient();
   let { data, error } = await supabase
     .from('documents')
-    .select('yjs_state, content, title, owner_id, version')
+    .select('yjs_state, content, title, owner_id, version, deleted_at')
     .eq('id', documentId)
     .single();
 
   // Same migration-not-applied fallback as in saveDocumentSnapshot. We
   // re-query without the new columns so a stale DB schema doesn't block
   // the editor from loading at all.
-  if (error && /column .* does not exist|42703|PGRST204/i.test(error.message + ' ' + (error.code ?? ''))) {
+  if (error && isMissingColumnError(error.message, error.code ?? undefined)) {
     console.warn(
       '[Strux] yjs_state column missing — loading without CRDT state. ' +
       'Run supabase/migrations/20260423180000_yjs_state.sql to enable ' +
@@ -189,6 +190,9 @@ export async function fetchDocumentBootstrap(
     if (error) console.error('fetchDocumentBootstrap failed:', error);
     return null;
   }
+
+  const deletedAt = (data as { deleted_at?: string | null }).deleted_at;
+  if (deletedAt) return null;
 
   // PostgREST returns BYTEA as either a base64 string or a `\x...` hex
   // literal depending on column settings. Handle both, fall back to null.

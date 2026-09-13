@@ -1,11 +1,21 @@
 import type { JSONContent } from '@tiptap/core';
+import { getSchema } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap';
+import * as Y from 'yjs';
+import { BlockId } from '@/components/editor/extensions/block-id';
 import { createSupabaseBrowserClient } from '@/lib/supabase';
-import { fetchDocumentBootstrap, saveDocumentSnapshot } from '@/lib/realtime';
+import { isMissingColumnError } from '@/lib/supabase/errors';
+import { saveDocumentSnapshot } from '@/lib/realtime';
 import { emptyDoc } from '@/lib/document-content';
-
-function isMissingColumnError(message: string, code?: string): boolean {
-  return /column .* does not exist|42703|PGRST204/i.test(message + ' ' + (code ?? ''));
-}
 
 export type ParentDocumentRow = {
   id: string;
@@ -105,16 +115,39 @@ export function cloneParentContent(parent: ParentDocumentRow | null): JSONConten
   return emptyDoc();
 }
 
-/** Persist branch JSON (+ optional Yjs) after AI implementation. */
+/**
+ * Encode TipTap JSON into a Yjs update that Collaboration can read.
+ * Fragment must be `'default'` (TipTap Collaboration’s field); the library
+ * default `'prosemirror'` is never bound by the editor.
+ */
+function encodeContentAsYjsState(content: JSONContent): Uint8Array {
+  const schema = getSchema([
+    StarterKit.configure({ heading: { levels: [1, 2, 3] }, undoRedo: false }),
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    Link,
+    Image,
+    Table,
+    TableRow,
+    TableCell,
+    TableHeader,
+    BlockId,
+  ]);
+  const tmp = prosemirrorJSONToYDoc(schema, content, 'default');
+  const bytes = Y.encodeStateAsUpdate(tmp);
+  tmp.destroy();
+  return bytes;
+}
+
+/** Persist branch JSON + Yjs state after AI implementation. */
 export async function persistBranchContent(
   branchId: string,
   content: JSONContent,
   title: string
 ): Promise<boolean> {
-  const boot = await fetchDocumentBootstrap(branchId);
   const result = await saveDocumentSnapshot({
     documentId: branchId,
-    yjsState: boot?.yjsState ?? null,
+    yjsState: encodeContentAsYjsState(content),
     content,
     title,
   });

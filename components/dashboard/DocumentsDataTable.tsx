@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   flexRender,
   getCoreRowModel,
@@ -9,7 +10,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { GitBranch, MoreHorizontal, Pencil, Star, Trash2 } from 'lucide-react';
+import { GitBranch, MoreHorizontal, Pencil, FolderInput, Star, Trash2, RotateCcw } from 'lucide-react';
 import { useCallback, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 
 import type { DashboardDocRow, DocStatus } from '@/lib/dashboard-queries';
@@ -93,29 +94,47 @@ function ActiveBranchesCell({ count }: { count: number }) {
 
 type DocumentsDataTableProps = {
   rows: DashboardDocRow[];
+  mode?: 'normal' | 'trash';
   canManage?: (row: DashboardDocRow) => boolean;
   onRename?: (id: string, title: string) => void;
   onDelete?: (id: string) => void;
   onToggleStar?: (id: string, starred: boolean) => void;
+  onMoveProject?: (id: string, projectName: string) => void;
+  onRestore?: (id: string) => void;
+  onPermanentDelete?: (id: string) => void;
 };
 
 export default function DocumentsDataTable({
   rows,
+  mode = 'normal',
   canManage = (r) => r.source === 'owned',
   onRename,
   onDelete,
   onToggleStar,
+  onMoveProject,
+  onRestore,
+  onPermanentDelete,
 }: DocumentsDataTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [moveId, setMoveId] = useState<string | null>(null);
+  const [moveValue, setMoveValue] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
   const deleteRow = rows.find((r) => r.id === deleteId);
 
   const openDocument = useCallback(
     (id: string) => {
       router.push(`/doc/${id}`);
+    },
+    [router]
+  );
+
+  const prefetchDocument = useCallback(
+    (id: string) => {
+      router.prefetch(`/doc/${id}`);
     },
     [router]
   );
@@ -130,7 +149,14 @@ export default function DocumentsDataTable({
           const hasBranches = doc.branch_count > 0;
           return (
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className="truncate font-medium text-foreground">{doc.title}</span>
+              <Link
+                href={`/doc/${doc.id}`}
+                prefetch
+                onClick={(e) => e.stopPropagation()}
+                className="truncate font-medium text-foreground hover:underline"
+              >
+                {doc.title}
+              </Link>
               {hasBranches && (
                 <Badge
                   variant="outline"
@@ -202,7 +228,33 @@ export default function DocumentsDataTable({
         header: '',
         cell: ({ row }) => {
           const doc = row.original;
-          if (!canManage(doc)) return null;
+          if (!canManage(doc) && mode !== 'trash') return null;
+          if (mode === 'trash') {
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  type="button"
+                  className="inline-flex size-7 cursor-default select-none items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                  onClick={(e: MouseEvent) => e.stopPropagation()}
+                  onKeyDown={(e: KeyboardEvent) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="size-4" />
+                  <span className="sr-only">Trash actions</span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={() => onRestore?.(doc.id)}>
+                    <RotateCcw className="size-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={() => setPermanentDeleteId(doc.id)}>
+                    <Trash2 className="size-4" />
+                    Delete permanently
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          }
           return (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -230,6 +282,17 @@ export default function DocumentsDataTable({
                   <Pencil className="size-4" />
                   Rename
                 </DropdownMenuItem>
+                {onMoveProject && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setMoveId(doc.id);
+                      setMoveValue(doc.project_name);
+                    }}
+                  >
+                    <FolderInput className="size-4" />
+                    Move to project
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={() => setDeleteId(doc.id)}>
                   <Trash2 className="size-4" />
@@ -241,7 +304,7 @@ export default function DocumentsDataTable({
         },
       },
     ],
-    [canManage, onToggleStar]
+    [canManage, mode, onToggleStar, onRestore, onMoveProject]
   );
 
   const table = useReactTable({
@@ -257,8 +320,8 @@ export default function DocumentsDataTable({
 
   return (
     <>
-      <div className="select-none rounded-lg border bg-card">
-        <Table>
+      <div className="w-full min-w-0 select-none overflow-hidden rounded-lg border bg-card">
+        <Table className="min-w-[640px] table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="hover:bg-transparent">
@@ -266,7 +329,15 @@ export default function DocumentsDataTable({
                   <TableHead
                     key={header.id}
                     scope="col"
-                    className="cursor-default select-none"
+                    className={cn(
+                      'cursor-default select-none px-3',
+                      header.column.id === 'title' && 'w-[36%]',
+                      header.column.id === 'doc_status' && 'w-[12%]',
+                      header.column.id === 'branches' && 'hidden w-[14%] sm:table-cell',
+                      header.column.id === 'last_activity_at' && 'w-[16%]',
+                      header.column.id === 'collaborators' && 'hidden w-[16%] md:table-cell',
+                      header.column.id === 'actions' && 'w-12'
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
@@ -287,6 +358,8 @@ export default function DocumentsDataTable({
                   tabIndex={0}
                   aria-label={`Open ${doc.title}`}
                   onClick={() => openDocument(doc.id)}
+                  onPointerEnter={() => prefetchDocument(doc.id)}
+                  onFocus={() => prefetchDocument(doc.id)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -302,7 +375,11 @@ export default function DocumentsDataTable({
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        cell.column.id === 'actions' && 'w-10 cursor-default'
+                        'px-3',
+                        cell.column.id === 'title' && 'max-w-0',
+                        cell.column.id === 'branches' && 'hidden sm:table-cell',
+                        cell.column.id === 'collaborators' && 'hidden md:table-cell',
+                        cell.column.id === 'actions' && 'w-12 cursor-default'
                       )}
                       onClick={
                         cell.column.id === 'actions'
@@ -359,7 +436,7 @@ export default function DocumentsDataTable({
           <DialogHeader>
             <DialogTitle>Delete document</DialogTitle>
             <DialogDescription>
-              Delete &ldquo;{deleteRow?.title}&rdquo;? This cannot be undone.
+              Move &ldquo;{deleteRow?.title}&rdquo; to trash? You can restore it later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -376,6 +453,68 @@ export default function DocumentsDataTable({
               }}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={moveId !== null} onOpenChange={(open) => !open && setMoveId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move to project</DialogTitle>
+            <DialogDescription>Assign this document to a project folder.</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={moveValue}
+            onChange={(e) => setMoveValue(e.target.value)}
+            placeholder="General"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && moveId && moveValue.trim()) {
+                onMoveProject?.(moveId, moveValue.trim());
+                setMoveId(null);
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMoveId(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (moveId && moveValue.trim()) {
+                  onMoveProject?.(moveId, moveValue.trim());
+                  setMoveId(null);
+                }
+              }}
+            >
+              Move
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={permanentDeleteId !== null} onOpenChange={(open) => !open && setPermanentDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete permanently</DialogTitle>
+            <DialogDescription>
+              Permanently delete this document? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPermanentDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (permanentDeleteId) {
+                  onPermanentDelete?.(permanentDeleteId);
+                  setPermanentDeleteId(null);
+                }
+              }}
+            >
+              Delete forever
             </Button>
           </DialogFooter>
         </DialogContent>
