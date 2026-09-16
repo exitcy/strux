@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  GitBranch,
   Loader2,
   MessageSquareReply,
   Send,
@@ -24,6 +25,7 @@ import {
 } from '@/lib/comments';
 import { timeAgo } from '@/lib/utils/time';
 import { Button } from '@/components/ui/button';
+import type { InlineSuggestionProposal } from '@/components/editor/extensions/inline-suggestion';
 import ProposedChange from './ProposedChange';
 
 interface ProposedChangeData {
@@ -43,7 +45,10 @@ interface CommentsPanelProps {
   documentContentJson?: JSONContent | null;
   documentTitle?: string;
   focusChangeId?: string | null;
-  onAcceptChange: (nodeIndex: number, proposedText: string) => void;
+  onSyncInlineSuggestions: (proposals: InlineSuggestionProposal[]) => void;
+  onFocusInlineSuggestion: (id: string) => void;
+  /** Bumped when an inline Accept/Reject resolves outside this panel. */
+  inlineResolveToken?: number;
   getNodeIndex: (text: string) => number;
 }
 
@@ -59,7 +64,9 @@ export default function CommentsPanel({
   documentContentJson,
   documentTitle = 'Untitled',
   focusChangeId,
-  onAcceptChange,
+  onSyncInlineSuggestions,
+  onFocusInlineSuggestion,
+  inlineResolveToken = 0,
   getNodeIndex,
 }: CommentsPanelProps) {
   const { user } = useAuth();
@@ -107,7 +114,7 @@ export default function CommentsPanel({
     if (!documentId) return;
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentId]);
+  }, [documentId, inlineResolveToken]);
 
   useEffect(() => {
     if (!focusChangeId || loading) return;
@@ -132,6 +139,36 @@ export default function CommentsPanel({
   const getReplies = (parentId: string) => comments.filter((c) => c.parent_id === parentId);
   const getChangesForComment = (commentId: string) =>
     proposedChanges.filter((pc) => pc.comment_id === commentId);
+
+  /** Resolve blockId for a proposed_change via its comment thread anchor. */
+  const blockIdForChange = (change: ProposedChangeData): string | null => {
+    const linked = comments.find((c) => c.id === change.comment_id);
+    if (!linked) return null;
+    if (linked.block_id) return linked.block_id;
+    if (linked.parent_id) {
+      const parent = comments.find((c) => c.id === linked.parent_id);
+      return parent?.block_id ?? null;
+    }
+    return null;
+  };
+
+  const toInlineProposal = (change: ProposedChangeData): InlineSuggestionProposal => ({
+    id: change.id,
+    blockId: blockIdForChange(change),
+    nodeIndex: change.node_index,
+    originalText: change.original_text,
+    proposedText: change.proposed_text,
+  });
+
+  // Keep TipTap decorations in sync with pending proposed_changes
+  useEffect(() => {
+    if (loading) return;
+    const pending = proposedChanges
+      .filter((pc) => pc.status === 'pending')
+      .map(toInlineProposal);
+    onSyncInlineSuggestions(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, proposedChanges, comments]);
 
   const handleAddComment = async (parentId: string | null = null) => {
     const text = parentId ? replyText : newComment;
@@ -186,7 +223,7 @@ export default function CommentsPanel({
     await fetchData();
   };
 
-  const handleAIImplement = async (comment: CommentRecord) => {
+  const handleBranch = async (comment: CommentRecord) => {
     if (!user) return;
 
     const anchor = resolveCommentAnchor(comment, documentContentJson, documentContent);
@@ -271,8 +308,9 @@ export default function CommentsPanel({
       });
 
       const nodeIndex = anchor?.nodeIndex ?? getNodeIndex(targetText);
+      const changeId = generateId();
       await supabase.from('proposed_changes').insert({
-        id: generateId(),
+        id: changeId,
         comment_id: aiCommentId,
         document_id: documentId,
         node_index: nodeIndex,
@@ -283,6 +321,20 @@ export default function CommentsPanel({
       });
 
       await fetchData();
+      // Immediately show inline preview (fetchData also syncs; this focuses the new one)
+      onSyncInlineSuggestions([
+        ...proposedChanges
+          .filter((pc) => pc.status === 'pending')
+          .map(toInlineProposal),
+        {
+          id: changeId,
+          blockId: anchor?.blockId ?? comment.block_id ?? null,
+          nodeIndex,
+          originalText: targetText,
+          proposedText: data.proposedText,
+        },
+      ]);
+      onFocusInlineSuggestion(changeId);
     } catch (err) {
       const message =
         err instanceof Error && err.name === 'AbortError'
@@ -295,23 +347,6 @@ export default function CommentsPanel({
       window.clearTimeout(timeoutId);
       setAskingAI(null);
     }
-  };
-
-  const handleAcceptChange = async (changeId: string, proposedText: string) => {
-    const change = proposedChanges.find((pc) => pc.id === changeId);
-    if (!change) return;
-
-    const supabase = createSupabaseBrowserClient();
-    await supabase.from('proposed_changes').update({ status: 'accepted' }).eq('id', changeId);
-
-    onAcceptChange(change.node_index, proposedText);
-    await fetchData();
-  };
-
-  const handleRejectChange = async (changeId: string) => {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.from('proposed_changes').update({ status: 'rejected' }).eq('id', changeId);
-    await fetchData();
   };
 
   const renderComment = (comment: CommentRecord, isReply = false) => {
@@ -428,8 +463,7 @@ export default function CommentsPanel({
                 originalText={change.original_text}
                 proposedText={change.proposed_text}
                 status={change.status as 'pending' | 'accepted' | 'rejected'}
-                onAccept={handleAcceptChange}
-                onReject={handleRejectChange}
+                onShowInDocument={onFocusInlineSuggestion}
               />
             </div>
           ))}
@@ -453,21 +487,21 @@ export default function CommentsPanel({
                 disabled={isProvisioning || askingAI === comment.id || !canImplement}
                 title={
                   canImplement
-                    ? 'Create an AI branch and review the diff'
+                    ? 'Create a branch and review the diff'
                     : 'Select text in the document or fix the missing anchor'
                 }
-                onClick={() => handleAIImplement(comment)}
+                onClick={() => handleBranch(comment)}
                 className="text-zinc-600 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
               >
                 {isProvisioning ? (
                   <>
                     <Loader2 className="w-3 h-3 animate-spin" />
-                    Provisioning branch…
+                    Branching…
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3 h-3" />
-                    AI Implement
+                    <GitBranch className="w-3 h-3" />
+                    Branch
                   </>
                 )}
               </Button>
@@ -477,6 +511,7 @@ export default function CommentsPanel({
                 size="xs"
                 className="h-auto px-1 text-primary"
                 disabled={askingAI === comment.id || isProvisioning || !canImplement}
+                title="Preview the edit in the document"
                 onClick={() => handleAskAI(comment)}
               >
                 {askingAI === comment.id ? 'Thinking…' : 'Suggest inline'}

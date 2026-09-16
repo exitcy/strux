@@ -8,6 +8,7 @@ import AIChatPanel from './sidebar/AIChatPanel';
 import VersionsPanel from './sidebar/VersionsPanel';
 import HistoryPanel from './sidebar/HistoryPanel';
 import { Button } from '@/components/ui/button';
+import type { InlineSuggestionProposal } from './extensions/inline-suggestion';
 
 type Tab = 'comments' | 'ai' | 'versions' | 'history';
 
@@ -21,7 +22,9 @@ interface ReviewSidebarProps {
   selectedBlockId?: string | null;
   focusChangeId?: string | null;
   initialTab?: Tab;
-  onAcceptChange: (nodeIndex: number, proposedText: string) => void;
+  onSyncInlineSuggestions: (proposals: InlineSuggestionProposal[]) => void;
+  onFocusInlineSuggestion: (id: string) => void;
+  inlineResolveToken?: number;
   getNodeIndex: (text: string) => number;
   currentJSON: JSONContent;
   canEdit: boolean;
@@ -46,7 +49,9 @@ export default function ReviewSidebar({
   selectedBlockId = null,
   focusChangeId,
   initialTab = 'comments',
-  onAcceptChange,
+  onSyncInlineSuggestions,
+  onFocusInlineSuggestion,
+  inlineResolveToken = 0,
   getNodeIndex,
   currentJSON,
   canEdit,
@@ -94,7 +99,9 @@ export default function ReviewSidebar({
             documentContentJson={documentContentJson}
             documentTitle={documentTitle}
             focusChangeId={focusChangeId}
-            onAcceptChange={onAcceptChange}
+            onSyncInlineSuggestions={onSyncInlineSuggestions}
+            onFocusInlineSuggestion={onFocusInlineSuggestion}
+            inlineResolveToken={inlineResolveToken}
             getNodeIndex={getNodeIndex}
           />
         )}

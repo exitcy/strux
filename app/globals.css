@@ -268,6 +268,83 @@
 }
 
 /* =====================================================================
+ * Inline AI suggestion preview (local decorations)
+ * ===================================================================== */
+.tiptap .inline-suggestion-removed {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.6);
+  border-radius: 2px;
+}
+
+.dark .tiptap .inline-suggestion-removed {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.tiptap .inline-suggestion-widget {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: 0.25rem;
+  vertical-align: baseline;
+  max-width: 100%;
+}
+
+.tiptap .inline-suggestion-added {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #047857;
+  border-radius: 2px;
+  padding: 0 0.125rem;
+  white-space: pre-wrap;
+}
+
+.dark .tiptap .inline-suggestion-added {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+.tiptap .inline-suggestion-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  vertical-align: middle;
+}
+
+.tiptap .inline-suggestion-accept,
+.tiptap .inline-suggestion-reject {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.tiptap .inline-suggestion-accept {
+  background-color: #059669;
+  color: #fff;
+}
+
+.tiptap .inline-suggestion-accept:hover {
+  background-color: #047857;
+}
+
+.tiptap .inline-suggestion-reject {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.tiptap .inline-suggestion-reject:hover {
+  color: var(--foreground);
+}
+
+/* =====================================================================
  * Collaboration cursors (remote users)
  * =====================================================================
  * The caret itself is a thin border-left on a zero-width <span>. We use

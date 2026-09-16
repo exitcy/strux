@@ -22,6 +22,12 @@ import debounce from 'lodash.debounce';
 
 import { SlashCommand } from './SlashCommand';
 import { BlockId } from './extensions/block-id';
+import {
+  InlineSuggestion,
+  applyProposedTextToEditor,
+  inlineSuggestionPluginKey,
+  type InlineSuggestionProposal,
+} from './extensions/inline-suggestion';
 
 const TableDeleteHandler = Extension.create({
   name: 'tableDeleteHandler',
@@ -211,6 +217,7 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
   const [userRole, setUserRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
   const [versionsRefreshToken, setVersionsRefreshToken] = useState(0);
+  const [inlineResolveToken, setInlineResolveToken] = useState(0);
   const [providerStatus, setProviderStatus] = useState<ProviderStatus>('connecting');
   const [bootstrapped, setBootstrapped] = useState(false);
   const { user } = useAuth();
@@ -234,6 +241,13 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
 
   const titleRef = useRef('Untitled');
   const isMountedRef = useRef(true);
+  const inlineActionRef = useRef<{
+    accept: (changeId: string, proposedText: string) => void;
+    reject: (changeId: string) => void;
+  }>({
+    accept: () => {},
+    reject: () => {},
+  });
 
   // ------------------------------------------------------------------
   // The Y.Doc and the network provider.
@@ -354,6 +368,10 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
       TableDeleteHandler,
       SlashCommand,
       BlockId,
+      InlineSuggestion.configure({
+        onAccept: (id, text) => inlineActionRef.current.accept(id, text),
+        onReject: (id) => inlineActionRef.current.reject(id),
+      }),
       Collaboration.configure({ document: ydoc }),
       PersistingCollaborationCaret.configure({
         provider,
@@ -627,20 +645,130 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
     return 0;
   }, [editor]);
 
-  const handleAcceptChange = useCallback((nodeIndex: number, proposedText: string) => {
-    if (!editor) return;
-    // We mutate via Tiptap commands so the change flows through the
-    // Collaboration extension into ydoc and broadcasts normally.
-    const json = JSON.parse(JSON.stringify(editor.getJSON()));
-    const nodes = json.content || [];
-    if (nodeIndex >= 0 && nodeIndex < nodes.length) {
-      const node = nodes[nodeIndex];
-      if (node.content) {
-        node.content = [{ type: 'text', text: proposedText }];
-      }
-      editor.commands.setContent(json);
-    }
+  const handleSyncInlineSuggestions = useCallback(
+    (proposals: InlineSuggestionProposal[]) => {
+      editor?.commands.syncInlineSuggestions(proposals);
+    },
+    [editor]
+  );
+
+  const handleFocusInlineSuggestion = useCallback(
+    (id: string) => {
+      editor?.commands.focusInlineSuggestion(id);
+    },
+    [editor]
+  );
+
+  // Wire inline Accept/Reject widgets → DB + Yjs + clear decoration
+  useEffect(() => {
+    inlineActionRef.current.accept = (changeId, proposedText) => {
+      void (async () => {
+        if (!editor) return;
+        const pluginState = inlineSuggestionPluginKey.getState(editor.state);
+        const proposal = pluginState?.proposals.find((p) => p.id === changeId);
+
+        const supabase = createSupabaseBrowserClient();
+        await supabase.from('proposed_changes').update({ status: 'accepted' }).eq('id', changeId);
+
+        if (proposal) {
+          applyProposedTextToEditor(
+            editor,
+            proposal.nodeIndex,
+            proposedText,
+            proposal.blockId
+          );
+        }
+        editor.commands.clearInlineSuggestion(changeId);
+        setInlineResolveToken((t) => t + 1);
+      })();
+    };
+
+    inlineActionRef.current.reject = (changeId) => {
+      void (async () => {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.from('proposed_changes').update({ status: 'rejected' }).eq('id', changeId);
+        editor?.commands.clearInlineSuggestion(changeId);
+        setInlineResolveToken((t) => t + 1);
+      })();
+    };
   }, [editor]);
+
+  // Bootstrap pending inline suggestions when the editor becomes ready
+  // (comments panel may not be open yet).
+  useEffect(() => {
+    if (!editor || !documentId) return;
+    let cancelled = false;
+    void (async () => {
+      type PendingChangeRow = {
+        id: string;
+        node_index: number;
+        original_text: string;
+        proposed_text: string;
+        status: string;
+        comment_id: string;
+      };
+      type CommentAnchorRow = {
+        id: string;
+        parent_id: string | null;
+        block_id: string | null;
+      };
+
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase
+        .from('proposed_changes')
+        .select('id, node_index, original_text, proposed_text, status, comment_id')
+        .eq('document_id', documentId)
+        .eq('status', 'pending');
+      if (cancelled) return;
+      const rows = (data ?? []) as PendingChangeRow[];
+      if (!rows.length) {
+        editor.commands.syncInlineSuggestions([]);
+        return;
+      }
+
+      const commentIds = rows.map((r: PendingChangeRow) => r.comment_id).filter(Boolean);
+      const { data: commentRows } = commentIds.length
+        ? await supabase.from('comments').select('id, parent_id, block_id').in('id', commentIds)
+        : { data: [] as CommentAnchorRow[] };
+
+      const commentList = (commentRows ?? []) as CommentAnchorRow[];
+      const parentIds = commentList
+        .map((c: CommentAnchorRow) => c.parent_id)
+        .filter((id: string | null): id is string => Boolean(id));
+      const { data: parentRows } = parentIds.length
+        ? await supabase.from('comments').select('id, block_id').in('id', parentIds)
+        : { data: [] as { id: string; block_id: string | null }[] };
+
+      const commentsById = new Map<string, { block_id: string | null; parent_id: string | null }>();
+      for (const c of commentList) {
+        commentsById.set(c.id, { block_id: c.block_id, parent_id: c.parent_id });
+      }
+      const parentsById = new Map<string, string | null>();
+      for (const p of (parentRows ?? []) as { id: string; block_id: string | null }[]) {
+        parentsById.set(p.id, p.block_id);
+      }
+
+      const proposals: InlineSuggestionProposal[] = rows.map((row: PendingChangeRow) => {
+        const linked = commentsById.get(row.comment_id);
+        let blockId = linked?.block_id ?? null;
+        if (!blockId && linked?.parent_id) {
+          blockId = parentsById.get(linked.parent_id) ?? null;
+        }
+        return {
+          id: row.id,
+          blockId,
+          nodeIndex: row.node_index,
+          originalText: row.original_text,
+          proposedText: row.proposed_text,
+        };
+      });
+
+      editor.commands.syncInlineSuggestions(proposals);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editor, documentId, inlineResolveToken]);
 
   // ------------------------------------------------------------------
   // Restore from versions panel.
@@ -866,7 +994,9 @@ export default function DocumentEditor({ documentId }: { documentId: string }) {
       selectedBlockId={selectedBlockId}
       focusChangeId={changeIdParam}
       initialTab="comments"
-      onAcceptChange={handleAcceptChange}
+      onSyncInlineSuggestions={handleSyncInlineSuggestions}
+      onFocusInlineSuggestion={handleFocusInlineSuggestion}
+      inlineResolveToken={inlineResolveToken}
       getNodeIndex={getNodeIndex}
       currentJSON={editor?.getJSON() ?? { type: 'doc', content: [] }}
       canEdit={canEdit}
