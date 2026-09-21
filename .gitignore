@@ -8,41 +8,62 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
 
 # next.js
 /.next/
 /out/
 
-# production
+# production / build artifacts
 /build
+/dist
+*.tsbuildinfo
+next-env.d.ts
 
 # misc
 .DS_Store
 Thumbs.db
 *.pem
+*.p12
+*.key
+*.crt
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
 
-# local env files
+# local env files (never commit secrets)
 .env
 .env.*
 !.env.example
 .env*.local
 
+# local databases & supabase CLI caches
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+.supabase/
+
 # editor / IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.fleet/
+.history/
+*.code-workspace
 
-# logs
-*.log
-
-# vercel
+# vercel / local deploy
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# OS / tooling
+.turbo/
+.cache/
+tmp/
+temp/

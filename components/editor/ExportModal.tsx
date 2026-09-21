@@ -183,8 +183,11 @@ export default function ExportModal({
       } else if (format === 'pdf-html') {
         const printWindow = window.open('', '_blank');
         if (printWindow) {
+          // Content is HTML-escaped/sanitized in buildExport before write.
+          printWindow.document.open();
           printWindow.document.write(payload.content);
           printWindow.document.close();
+          printWindow.focus();
           printWindow.print();
         }
         setOpen(false);

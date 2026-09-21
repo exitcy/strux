@@ -7,6 +7,44 @@ function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'untitled';
 }
 
+/** Escape text for safe insertion into HTML text/attribute contexts. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Strip high-risk markup from TipTap HTML before Print/PDF.
+ * Works in Node (tests) and the browser — no DOM dependency.
+ */
+export function sanitizeExportHtml(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(
+      /<\/?(?:script|iframe|object|embed|link|meta|base|form|input|button|textarea|select|svg|math|template|applet|frame|frameset)(?:\s[^>]*)?>/gi,
+      ''
+    )
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s(href|src|xlink:href)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, ' $1=$2#$2')
+    .replace(/\s(href|src|xlink:href)\s*=\s*javascript:[^\s>]*/gi, ' $1="#"');
+}
+
+/** Make a document title safe inside double-quoted YAML frontmatter. */
+export function escapeYamlDoubleQuoted(text: string): string {
+  return text
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\s+/g, ' ')
+    .trim() || 'untitled';
+}
+
 function applyMarks(text: string, marks?: JSONContent['marks']): string {
   if (!marks?.length) return text;
   let out = text;
@@ -212,6 +250,9 @@ export function buildExport(
   const slug = slugify(title);
   const date = new Date().toISOString().split('T')[0];
   const questions = formatOpenQuestions(openComments);
+  const safeTitle = escapeHtml(title);
+  const yamlTitle = escapeYamlDoubleQuoted(title);
+  const safeHtml = sanitizeExportHtml(html ?? '');
 
   switch (format) {
     case 'markdown':
@@ -224,7 +265,7 @@ export function buildExport(
       return {
         content: `<!DOCTYPE html>
 <html><head>
-  <title>${title}</title>
+  <title>${safeTitle}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.7; }
     h1 { font-size: 2rem; margin-bottom: 0.5rem; }
@@ -243,9 +284,9 @@ export function buildExport(
     .meta { color: #71717a; font-size: 0.875rem; margin-bottom: 2rem; }
   </style>
 </head><body>
-  <h1>${title}</h1>
+  <h1>${safeTitle}</h1>
   <p class="meta">Exported from Strux on ${date}</p>
-  ${html ?? ''}
+  ${safeHtml}
 </body></html>`,
         mimeType: 'text/html',
       };
@@ -257,7 +298,7 @@ export function buildExport(
       };
     case 'cursor-rule':
       return {
-        content: `---\ndescription: "Design spec: ${title}"\nglobs:\n  - "src/**"\n  - "app/**"\n  - "components/**"\nalwaysApply: false\n---\n\n# ${title}\n\n${markdown}${questions}\n\nWhen implementing code in this project, follow this design specification precisely.`,
+        content: `---\ndescription: "Design spec: ${yamlTitle}"\nglobs:\n  - "src/**"\n  - "app/**"\n  - "components/**"\nalwaysApply: false\n---\n\n# ${title.replace(/[\r\n]+/g, ' ')}\n\n${markdown}${questions}\n\nWhen implementing code in this project, follow this design specification precisely.`,
         filename: `${slug}.mdc`,
         mimeType: 'text/markdown',
         setupPath: `.cursor/rules/${slug}.mdc`,

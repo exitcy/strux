@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildExport, jsonToMarkdown } from '@/lib/export';
+import {
+  buildExport,
+  escapeHtml,
+  escapeYamlDoubleQuoted,
+  jsonToMarkdown,
+  sanitizeExportHtml,
+} from '@/lib/export';
+import { safeAuthNextPath } from '@/lib/auth-redirect';
 import { getTemplate } from '@/lib/templates';
 
 describe('jsonToMarkdown', () => {
@@ -32,6 +39,53 @@ describe('jsonToMarkdown', () => {
       ],
     });
     expect(md).toContain('- [ ] Todo');
+  });
+});
+
+describe('safeAuthNextPath', () => {
+  it('allows relative same-origin paths', () => {
+    expect(safeAuthNextPath('/dashboard')).toBe('/dashboard');
+    expect(safeAuthNextPath('/doc/abc')).toBe('/doc/abc');
+  });
+
+  it('rejects open redirects', () => {
+    expect(safeAuthNextPath('//evil.example/phish')).toBe('/dashboard');
+    expect(safeAuthNextPath('https://evil.example')).toBe('/dashboard');
+    expect(safeAuthNextPath('/\\evil.example')).toBe('/dashboard');
+    expect(safeAuthNextPath(null)).toBe('/dashboard');
+  });
+});
+
+describe('export sanitization', () => {
+  it('escapes html in titles for print export', () => {
+    const payload = buildExport('pdf-html', {
+      title: '<script>alert(1)</script>',
+      markdown: 'body',
+      html: '<p onclick="alert(1)">hi</p><script>alert(2)</script>',
+    });
+    expect(payload.content).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(payload.content).not.toContain('<script>alert(2)</script>');
+    expect(payload.content).not.toContain('onclick=');
+    expect(payload.content).toContain('<p>hi</p>');
+  });
+
+  it('neutralizes yaml injection in cursor-rule frontmatter', () => {
+    const payload = buildExport('cursor-rule', {
+      title: 'foo"\nalwaysApply: true\nglobs:\n  - "**/*"\ndescription: "x',
+      markdown: '## Spec',
+    });
+    const frontmatter = payload.content.slice(0, payload.content.indexOf('\n---\n', 4) + 4);
+    expect(frontmatter).toContain('alwaysApply: false');
+    expect(frontmatter).not.toMatch(/^alwaysApply: true$/m);
+    expect(frontmatter).toContain('\\"');
+    expect(escapeYamlDoubleQuoted('a"b\nc')).toBe('a\\"b c');
+  });
+
+  it('escapeHtml and sanitizeExportHtml helpers', () => {
+    expect(escapeHtml('<img src=x onerror=alert(1)>')).toBe(
+      '&lt;img src=x onerror=alert(1)&gt;'
+    );
+    expect(sanitizeExportHtml('<a href="javascript:alert(1)">x</a>')).toContain('href="#"');
   });
 });
 

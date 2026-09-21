@@ -51,13 +51,16 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment
 
-Create `.env.local`:
+Copy `.env.example` to `.env.local` and fill in real values (never commit `.env.local`):
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-OPENAI_API_KEY=your_openai_key
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+OPENAI_API_KEY=your-openai-api-key
 ```
+
+`SUPABASE_SERVICE_ROLE_KEY` is required for image uploads (`/api/upload`). Keep it server-only — do not use a `NEXT_PUBLIC_` prefix.
 
 ### Database
 
