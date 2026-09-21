@@ -1,6 +1,6 @@
 # Strux
 
-**Design specs for software engineers** — write collaboratively, review with AI, branch like Git, and ship to Cursor or Claude for implementation.
+**Design specs for software engineers**: write collaboratively, review with AI, branch like Git, and ship to Cursor or Claude for implementation.
 
 Strux is a version-controlled collaborative document editor built for the design-doc workflow that engineering teams use before writing code. Draft a spec, get feedback, iterate on branches, merge into main, then export directly into your AI coding tools.
 
