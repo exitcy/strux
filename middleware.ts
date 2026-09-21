@@ -1,5 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import {
+  clearSupabaseAuthCookies,
+  isInvalidUtf8AuthError,
+  sanitizeRequestCookies,
+} from '@/lib/supabase-auth-cookies';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -10,7 +15,7 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll();
+          return sanitizeRequestCookies(request.cookies.getAll());
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
@@ -23,8 +28,20 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // This refreshes the session if expired — important for keeping users logged in.
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    // Refreshes the session if expired — important for keeping users logged in.
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    // Malformed/chunked sb-*-auth-token cookies throw inside @supabase/ssr.
+    if (isInvalidUtf8AuthError(error)) {
+      response = clearSupabaseAuthCookies(request, response);
+      user = null;
+    } else {
+      throw error;
+    }
+  }
 
   const { pathname } = request.nextUrl;
 

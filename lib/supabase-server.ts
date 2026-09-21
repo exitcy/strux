@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { sanitizeRequestCookies } from '@/lib/supabase-auth-cookies';
 
 // Server client — used in middleware & server components.
 // Reads auth tokens from cookies so the server knows who
@@ -13,7 +14,7 @@ export const createSupabaseServerClient = async () => {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return sanitizeRequestCookies(cookieStore.getAll());
         },
         setAll(cookiesToSet) {
           try {

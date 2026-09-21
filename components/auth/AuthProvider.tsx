@@ -40,6 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+      },
+      () => {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
       }
     );
 
